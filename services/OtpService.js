@@ -227,41 +227,55 @@ async function planRoute({ fromLat, fromLon, toLat, toLon, profile, modes, bikeT
   });
   let routingErrors = basarili.flatMap((x) => x.hatalar);
 
-  // ─── Bisikletsiz TABAN ÇİZGİSİ ───────────────────────────────────────
+  // ─── Düz toplu taşıma TABAN ÇİZGİSİ ──────────────────────────────────
   //
   // Burada bir zamanlar "bisikletsiz yedek" vardı: bisiklet işe yaramıyorsa
   // yürüyüş erişimiyle yeniden sorulup BİSİKLETSİZ güzergâhlar DÖNDÜRÜLÜYORDU.
   // O kaldırıldı — kullanıcı "Bisikletim + Aktarma" seçmişken içinde bisiklet
   // olmayan bir liste alıyordu (mod saflığı).
   //
-  // Ama ölçüm hâlâ gerekli, çünkü "bu bisiklet işe yarıyor mu" sorusunun
-  // dürüst cevabı ancak bisikletsiz alternatifle KARŞILAŞTIRARAK verilebilir.
-  // Ölçüldü (Konak → Bornova): 282 m'lik bisiklet bacağı yolculuğu 6.2 dakika
+  // Ama ölçüm hâlâ gerekli, çünkü "bu araç işe yarıyor mu" sorusunun dürüst
+  // cevabı ancak araçsız alternatifle KARŞILAŞTIRARAK verilebilir. Ölçüldü
+  // (Konak → Bornova): 282 m'lik bisiklet bacağı yolculuğu 6.2 dakika
   // UZATIYORDU; oran ya da mesafe eşiği bunu göremez, süre farkı görür.
   //
   // Bu yüzden yürüyüşlü sorgu yapılmaya devam ediyor ama sonucu KULLANILMIYOR;
   // yalnız en iyi süresi alınıp her güzergâha iliştiriliyor. Eleme kararı
-  // gösterim katmanında (MOD_AMACI.bicycle_park) ve o katman tek: mobil
-  // uygulama, web demo ve web arayüzü aynı paketi çalıştırıyor.
+  // gösterim katmanında (MOD_AMACI) ve o katman tek: mobil uygulama, web demo
+  // ve web arayüzü aynı paketi çalıştırıyor.
   //
-  // Sorgu paralel gitmiyor çünkü yalnız bisiklet profillerinde gerekiyor ve
-  // OTP'ye üçüncü bir istek yükü var; düşerse taban çizgisi null kalır ve
-  // eleme AÇIK FAİL eder (bilinmiyorsa güzergâh elenmez).
-  let bisikletsizEnIyiSn = null;
-  if (profile === "bicycle") {
+  // P+R DE İSTİYOR — eleme için değil, ÇIKIŞ TEKLİFİ için: mod bu yolculuğa
+  // uymadığında (araç yolculuğu domine ediyorsa) kullanıcıya boş ekran yerine
+  // "toplu taşıma 36 dk" denip tek dokunuşla geçebilmesi gerekiyor. Sayı
+  // uydurulamaz, ölçülmeli.
+  //
+  // Sorgu paralel gitmiyor çünkü yalnız bu iki profilde gerekiyor ve OTP'ye
+  // üçüncü bir istek yükü var; düşerse taban çizgisi null kalır ve hem eleme
+  // hem teklif AÇIK FAİL eder (bilinmiyorsa güzergâh elenmez, teklif de
+  // gösterilmez).
+  let duzTransitEnIyiSn = null;
+  if (profile === "bicycle" || profile === "park_and_ride") {
     try {
       const taban = await sorgula({
         transit: { access: ["WALK"], egress: ["WALK"], transfer: ["WALK"], transit: transitPrefs },
       });
       const sureler = taban.liste.map((it) =>
         it.legs.reduce((t, l) => t + (l.duration || 0), 0));
-      if (sureler.length) bisikletsizEnIyiSn = Math.min(...sureler);
+      if (sureler.length) duzTransitEnIyiSn = Math.min(...sureler);
     } catch (err) {
-      console.warn("Bisikletsiz taban çizgisi alınamadı:", err.message);
+      console.warn("Düz transit taban çizgisi alınamadı:", err.message);
     }
   }
-  if (bisikletsizEnIyiSn != null) {
-    itineraries = itineraries.map((it) => ({ ...it, bisikletsizEnIyiSn }));
+  // Eski ad korunuyor: MOD_AMACI.bicycle_park ve senaryo süiti onu okuyor,
+  // ve eski bir istemci de bekliyor olabilir (bkz. BISIM_ASGARI_PAY'deki aynı
+  // kalıp). Yeni ad nötr, çünkü artık iki modun sorusuna birden cevap veriyor.
+  const bisikletsizEnIyiSn = profile === "bicycle" ? duzTransitEnIyiSn : null;
+  if (duzTransitEnIyiSn != null) {
+    itineraries = itineraries.map((it) => ({
+      ...it,
+      duzTransitEnIyiSn,
+      ...(bisikletsizEnIyiSn != null ? { bisikletsizEnIyiSn } : {}),
+    }));
   }
 
   // Sıralama BİLEREK burada yapılmıyor. Güzergâhlar OTP'nin verdiği sırayla
@@ -278,7 +292,7 @@ async function planRoute({ fromLat, fromLon, toLat, toLon, profile, modes, bikeT
   //
   // Buraya yeniden sıralama eklenecekse, uygulamadaki puanlama aynı anda
   // kaldırılmalı: sorumluluk tek tarafta yaşamalı.
-  return { itineraries, routingErrors, profile, bisikletsizEnIyiSn };
+  return { itineraries, routingErrors, profile, duzTransitEnIyiSn, bisikletsizEnIyiSn };
 }
 
 module.exports = {

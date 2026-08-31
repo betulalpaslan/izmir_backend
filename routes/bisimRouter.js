@@ -13,10 +13,34 @@ const router = express.Router();
 
 // Kullanıcıya dönük uç: bisikletin bırakılabileceği bölgeler.
 // Eskiden istasyon listesiydi; BİSİM 2025-08'de sabit istasyonları kaldırdı.
+//
+// Bonus noktalarının YANINDA hizmet alanı da dönülür. İkisi ayrı sorular:
+// bonus "bırakırsan puan kazanırsın" der, hizmet alanı "buranın dışına
+// bırakamazsın" der. Alan olmadan kullanıcı yalnız 11 daire görüyordu ve
+// bisikleti başka yere bırakabileceğini bilmiyordu — oysa dockless modelin
+// bütün anlamı bu. Alan zaten OTP'ye geofencing_zones ile veriliyordu;
+// eksik olan tek şey aynı geometrinin ekrana da gitmesiydi.
 router.get(["/stations", "/bolgeler"], (req, res) => {
   res.json({
     model: "bolge",
     bolgeler: bolgeService.birakmaNoktalari(),
+    hizmetAlani: {
+      // Resmî sınır DEĞİL: bisiklet yolu geometrisinin ALAN_TAMPON_M kadar
+      // genişletilmiş dışbükey kabuğu (bkz. BisimBolgeService.hizmetAlani).
+      // Kabuk dışbükey olduğu için körfezin suyunu da kapsıyor; istemci bunu
+      // "yaklaşık" diye etiketlemek zorunda, yoksa kullanıcı hizmet dışı bir
+      // noktaya bırakıp ceza yiyebilir.
+      yaklasik: true,
+      // Her parça bir DIŞ HALKA: [[lon,lat], …]. hizmetAlani() GeoJSON
+      // Polygon'u döndürüyor, yani halka DİZİSİ ([[halka]]); delik olmadığı
+      // için (kabuk dışbükey, tek parça) dış halka alınıp düzleştiriliyor.
+      // İstemcinin poligon çizmek için ihtiyacı olan tek şey bu; iç içe diziyi
+      // iki ayrı istemcide açmak, ikisinde de aynı hatayı davet ediyordu.
+      //
+      // Sıra GeoJSON'un sırası: [lon, lat]. Leaflet ve react-native-maps
+      // [lat, lon] ister; çeviri istemcide yapılır.
+      parcalar: bolgeService.hizmetAlani().map((poligon) => poligon[0]),
+    },
     updatedAt: new Date().toISOString(),
   });
 });
