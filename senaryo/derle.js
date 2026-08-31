@@ -48,10 +48,11 @@ const parcalar = ["polyline.js", "geo.js", "routeScoring.js", "routeInstructions
   .map((d) => `/* ── ${d} ── */\n` + temizle(fs.readFileSync(path.join(KAYNAK, d), "utf8")));
 
 const ADLAR = [
-  "SCORING", "WALK_LEG_TARGET", "BIKE_LEG_MIN", "MOD_AMACI", "MUTLAK_YURUYUS_TAVANI",
+  "SCORING", "WALK_LEG_TARGET", "BIKE_LEG_MIN", "MOD_AMACI", "PR_TRANSIT_ASGARI_ORAN",
+  "MUTLAK_YURUYUS_TAVANI",
   "YURUYUS_BACAK_TAVANI_SN", "BISIKLET_ASGARI_PAY", "MODE_STYLE",
   "NON_TRANSIT_MODES", "resolveProfileKey", "calcLegDistanceMeters",
-  "rankItineraries", "selectCandidates", "buildRouteResult", "getLegInstruction",
+  "rankItineraries", "modBosSebebi", "selectCandidates", "buildRouteResult", "getLegInstruction",
   "CANDIDATE_DEFS", "ADAY_OLCULERI", "MAX_ROUTES", "calcCarbonGrams", "candidateKey",
   "calcJourneyFare", "ONERI_TOLERANSI", "oneriSinirinaUydur", "ayniHattiTekilleştir",
   "decodePolyline",

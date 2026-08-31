@@ -29,11 +29,25 @@ const transitBacaklari = (legs) => legs.filter((l) => !TRANSIT_DISI.includes(l.m
 const ARAC_MIN_M = {
   bicycle_rent:  500,
   bicycle_park:  800,
-  // 2 km: bundan kısa bir sürüş için arabayı çıkarıp park yeri aramak,
-  // park süresinin (OTP'de 5 dk) tek başına yolculuğun büyük kısmı olması
-  // demek. Ölçümle güncellenecek başlangıç değeri.
-  park_and_ride: 2000,
+  // park_and_ride BİLEREK YOK.
+  //
+  // Burada 2000 vardı ("bundan kısa bir sürüş için arabayı çıkarmaya değmez")
+  // ve uygulamada da aynı taban duruyordu. Ölçüldüğünde yanlış çıktı:
+  // Karşıyaka → Bornova'da 1.1 km sürüp Karşıyaka İskele Otoparkı'na park
+  // eden ve 8.6–14.2 km transit yapan DÖRT güzergâh eleniyordu — oysa Park &
+  // Ride tam olarak budur. Uygulama kuralı artık araç tabanı değil ORAN
+  // soruyor (routeScoring.js MOD_AMACI.park_and_ride: transit >= 2 km VE
+  // transit >= araç). Süit uygulamayı yansıtmalı; burada bir taban bırakmak,
+  // uygulamanın bilerek gösterdiği güzergâhları her koşuda arıza diye
+  // raporlamak olurdu.
 };
+
+// "Bu modun bir erişim aracı var mı" — K2 ve K5'in kapısı. ARAC_MIN_M'den
+// AYRI tutuluyor: o tablo artık yalnız K1'in mesafe tabanı ve park_and_ride
+// oradan çıktı. İkisi aynı tabloyken P+R'yi çıkarmak K2'yi ("transit tarafı
+// göstermelik") ve K5'i ("mod hiç görünmüyor") de sessizce kapatıyordu —
+// oysa araç-domine vakasını yakalayan kural tam olarak K2.
+const ARACLI_MODLAR = ["bicycle_rent", "bicycle_park", "park_and_ride"];
 
 // Transit tarafı bundan kısaysa yolculuk aslında "araba" yolculuğudur;
 // son bir durak için P+R etiketi takmak kullanıcıyı yanıltır.
@@ -72,7 +86,7 @@ const kurallar = [
     ad: "transit tarafı göstermelik",
     // Yolun tamamını sürüp son durakta transite binmek P+R değildir.
     denetle({ modAnahtari, legs }) {
-      if (!ARAC_MIN_M[modAnahtari]) return null;
+      if (!ARACLI_MODLAR.includes(modAnahtari)) return null;
       const tl = transitBacaklari(legs);
       if (tl.length === 0) return null;
       const tm = tl.reduce((s, l) => s + (l.distance || 0), 0);
@@ -129,7 +143,7 @@ const listeKurallari = [
     // Kullanıcı BİSİM seçti ama hiçbir sonuçta bisiklet yok — mod seçimi
     // kullanıcıya yalan söylüyor demektir.
     denetle({ modAnahtari, aracliSayi, toplamSayi }) {
-      if (!ARAC_MIN_M[modAnahtari] || toplamSayi === 0) return null;
+      if (!ARACLI_MODLAR.includes(modAnahtari) || toplamSayi === 0) return null;
       if (aracliSayi === 0) return `${toplamSayi} güzergâhın hiçbirinde araç yok`;
       return null;
     },
@@ -156,7 +170,7 @@ const listeKurallari = [
 
 module.exports = {
   kurallar, listeKurallari,
-  ARAC_MODLARI, TRANSIT_DISI, ARAC_MIN_M, TRANSIT_MIN_M, YAVASLIK_ORANI,
+  ARAC_MODLARI, TRANSIT_DISI, ARAC_MIN_M, ARACLI_MODLAR, TRANSIT_MIN_M, YAVASLIK_ORANI,
   YURUYUS_TAVANI_SN,
   mesafe, sure, transitBacaklari,
 };

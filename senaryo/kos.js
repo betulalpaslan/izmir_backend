@@ -140,16 +140,34 @@ const imza = (it) => it.legs.map((l) => l.mode).join(">") + "|" + Math.round(sur
         // katmanından geçtiyse eleme çalışmıyor demektir. K10 ham çıktıda
         // bulgu verebilir (OTP öyle güzergâhlar üretir, bu normaldir);
         // burada bulgu çıkması ARIZADIR.
-        for (const r of siralı) {
-          const en = Math.max(0, ...r.itin.legs.filter((l) => l.mode === "WALK").map((l) => l.duration || 0));
-          if (en > YURUYUS_TAVANI_SN) {
-            bulgular.push({
-              senaryo: sen.id, mod: modAnahtari, kod: "K11",
-              ad: "GÖSTERİLEN güzergâhta 20 dk üstü yürüyüş", adet: 1,
-              detay: `tek bacakta ${Math.round(en / 60)} dk — eleme çalışmıyor`,
-            });
-            break;
+        //
+        // TEK İSTİSNA — puanlama katmanı `yuruyusZorunlu` işaretiyle
+        // döndüyse: o yolculukta tavanın altında güzergâh YOK ve kural
+        // bilerek istisnaya düşüyor (routeScoring.js KATMAN 2). Bunu arıza
+        // saymak, kuralın kendisini arıza saymak olurdu. Ama sessiz de
+        // geçilmez: kaç senaryoda zorunlu yürüyüşe düşüldüğü izlenmesi
+        // gereken bir sayıdır, K12 olarak ayrıca raporlanır.
+        const zorunlu = siralı.length > 0 && siralı.every((r) => r.yuruyusZorunlu);
+        if (!zorunlu) {
+          for (const r of siralı) {
+            const en = Math.max(0, ...r.itin.legs.filter((l) => l.mode === "WALK").map((l) => l.duration || 0));
+            if (en > YURUYUS_TAVANI_SN) {
+              bulgular.push({
+                senaryo: sen.id, mod: modAnahtari, kod: "K11",
+                ad: "GÖSTERİLEN güzergâhta 20 dk üstü yürüyüş", adet: 1,
+                detay: `tek bacakta ${Math.round(en / 60)} dk — eleme çalışmıyor`,
+              });
+              break;
+            }
           }
+        } else {
+          const enAz = Math.round(Math.min(...siralı.map((r) =>
+            Math.max(0, ...r.itin.legs.filter((l) => l.mode === "WALK").map((l) => l.duration || 0)))) / 60);
+          bulgular.push({
+            senaryo: sen.id, mod: modAnahtari, kod: "K12",
+            ad: "Zorunlu yürüyüş — tavanın altında güzergâh yok", adet: 1,
+            detay: `en az yürüten kart tek bacakta ${enAz} dk (tavan 20 dk)`,
+          });
         }
 
         // K8: mod seçildi, sıralamadan sonra o modun aracı ekranda yok.
@@ -160,6 +178,24 @@ const imza = (it) => it.legs.map((l) => l.mode).join(">") + "|" + Math.round(sur
             detay: `${gosterilen} güzergâh gösteriliyor, ilkinde araç yok`,
           });
         }
+      }
+
+      // K13 — kullanıcıya hiçbir şey kalmıyor. Bu tabloda `göst 0` olarak
+      // zaten görünüyordu ama bulgu üretmiyordu; oysa boş ekran ürünün en
+      // ağır çıktısı. Sebebi de yazılır: liste boşsa geriye tek gerekçe
+      // kalıyor — seçilen modun amacı karşılanmıyor (routeScoring.js).
+      if (its.length > 0 && gosterilen === 0) {
+        // Sebep uygulamanın kendi teşhisinden gelir (routeScoring.modBosSebebi) —
+        // kullanıcıya gösterilen cümlenin AYNISI. Süit "mod amacı geçirmiyor"
+        // gibi genel bir şey yazsaydı, raporu okuyan kişi hangi eşiğin
+        // ısırdığını yine elle ölçmek zorunda kalırdı.
+        const teshis = RS.modBosSebebi(its, modAnahtari);
+        bulgular.push({
+          senaryo: sen.id, mod: modAnahtari, kod: "K13",
+          ad: "Kullanıcıya gösterilecek güzergâh kalmıyor", adet: 1,
+          detay: `${its.length} güzergâh geldi, 0 gösteriliyor — ` +
+                 (teshis.mesaj || "mod amacı hiçbirini geçirmiyor"),
+        });
       }
 
       satirlar.push({
