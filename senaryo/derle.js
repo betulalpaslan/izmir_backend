@@ -3,8 +3,7 @@
 //
 // İKİ tüketicisi var ve ikisi de aynı paketi kullanmalı:
 //   • senaryo süiti (node)                     — "kullanıcı ne görüyor"u ölçer
-//   • izmir_ulasim/web_demo.html               — tarayıcıdaki deneme arayüzü
-//   • multimodal_web/frontend/index (1).html   — web arayüzü
+//   • izmir_ulasim/web/index.html   — tarayıcıdaki web arayüzü
 //
 // İkincisi bir zamanlar puanlamanın KENDİ KOPYASINI taşıyordu ve kopya
 // sessizce ayrıştı: uygulamada 20 dakikalık yürüyüş tavanı, mod saflığı ve
@@ -23,18 +22,15 @@ const KAYNAK = process.env.MOBIL_UTILS
   || path.join(__dirname, "..", "..", "izmir_ulasim", "utils");
 // Süit yanında bir kopya, demo yanında bir kopya. İkisi de üretilmiş
 // dosyadır; elle düzenlenmez.
-// Web arayüzü ayrı bir depoda; yolu ortam değişkeniyle geçersiz kılınabilir.
-// O sayfa paketi <script src="routeScoring.bundle.js"> ile yüklüyor ve dosya
-// ORADA YOKTU: 404 alıyor, tarayıcının önbelleğindeki eski kopyayla
-// çalışıyordu. Sonuç, kullanıcının aylar önceki kurallarla üretilmiş
-// güzergâhlar görmesiydi — 39 dakikalık yürüyüş bacağı dahil.
-const WEB_FRONTEND = process.env.WEB_FRONTEND
-  || path.join("D:", "multimodal_web", "frontend");
-
+// Web arayüzü artık AYNI DEPODA (izmir_ulasim/web/). Önceden
+// D:/multimodal_web/frontend altındaydı ve paketi <script src> ile
+// yüklüyordu; o dosya orada YOKTU, sayfa 404 alıp tarayıcı önbelleğindeki
+// eski kopyayla çalışıyordu — kullanıcı aylar önceki kurallarla üretilmiş
+// güzergâhlar görüyordu, 39 dakikalık yürüyüş bacağı dahil. Arayüz depoya
+// taşındı ki paket yanına üretilsin ve bir daha ayrışmasın.
 const HEDEFLER = [
   path.join(__dirname, "routeScoring.bundle.js"),
-  path.join(KAYNAK, "..", "routeScoring.bundle.js"),
-  path.join(WEB_FRONTEND, "routeScoring.bundle.js"),
+  path.join(KAYNAK, "..", "web", "routeScoring.bundle.js"),
 ].filter((h) => fs.existsSync(path.dirname(h)));
 
 if (!fs.existsSync(KAYNAK)) {
